@@ -1,0 +1,66 @@
+import yaml
+import glob, os, pathlib
+
+
+#Config file
+configfile: "config/config.yaml"
+samsheet="config/samples.tsv"
+
+samdict = {}
+with open(samsheet) as fin:
+    for line in fin:
+        data = line.split("\t")
+        samdict[data[0]] = {'bamfile' : data[1]}
+
+samples = list(samdict.keys())
+
+#Global variables from config
+ref_org = config["ref_org"]
+callers = ["sniffles", "cutesv", "svim"]
+
+#Functions
+def get_bam(wildcards):
+    bfile = samdict[wildcards.sample]['bamfile']
+    return bfile
+
+
+#Global rule
+rule all:
+    input:
+        expand(" ", sample=samples)
+
+
+#Rules
+rule snifflesCall:
+    input:
+        ref = config["reference"]
+        bamfile = get_bam
+    output:
+        vcf = "{sample}_vs" + ref_org + "_sniffles.vcf"
+        snf = "{sample}_vs" + ref_org + "_sniffles.snf"
+    conda:
+        "workflow/envs/sniffles.yaml"
+    shell:
+        "sniffles --threads 8 --reference {input.ref} --input {input.bam} --vcf {output.vcf} --snf {output.snf}"
+
+rule cutesvCall:
+    input:
+        ref = config["reference"]
+        bamfile = get_bam
+    output:
+        vcf = "{sample}_vs" + ref_org + "_cutesv.vcf"
+    conda:
+        "workflow/envs/cutesv.yaml"
+    shell:
+        "cuteSV --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {output.vcf}"
+
+rule svimCall:
+    input:
+        ref = config["reference"]
+        bamfile = get_bam
+    output:
+        vcf = "{sample}_vs" + ref_org + "_svim.vcf"
+    conda:
+        "workflow/envs/svim.yaml"
+    shell:
+        "svim alignment "
