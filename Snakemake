@@ -16,8 +16,7 @@ samples = list(samdict.keys())
 
 #Global variables from config
 ref_org = config["ref_org"]
-surv_path = config["survivor_path"]
-callers = ["sniffles", "cutesv", "svim"]
+int_files = config["intermediate_files"]
 
 #Functions
 def get_bam(wildcards):
@@ -28,7 +27,7 @@ def get_bam(wildcards):
 #Global rule
 rule all:
     input:
-        expand(" ", sample=samples)
+        expand("results/{sample}_finalCall.vcf", sample=samples)
 
 
 #Rules
@@ -37,8 +36,8 @@ rule snifflesCall:
         ref = config["reference"]
         bamfile = get_bam
     output:
-        vcf = "{sample}_vs_" + ref_org + "_sniffles.vcf"
-        snf = "{sample}_vs_ + ref_org + "_sniffles.snf"
+        vcf = int_files + "{sample}_vs_" + ref_org + "_sniffles.vcf"
+        snf = int_files +  "{sample}_vs_" + ref_org + "_sniffles.snf"
     conda:
         "workflow/envs/sniffles.yaml"
     shell:
@@ -49,7 +48,7 @@ rule cutesvCall:
         ref = config["reference"]
         bamfile = get_bam
     output:
-        vcf = "{sample}_vs_" + ref_org + "_cutesv.vcf"
+        vcf = int_files + "{sample}_vs_" + ref_org + "_cutesv.vcf"
     conda:
         "workflow/envs/cutesv.yaml"
     shell:
@@ -60,17 +59,22 @@ rule svimCall:
         ref = config["reference"]
         bamfile = get_bam
     output:
-        vcf = "{sample}_vs_" + ref_org + "_svim.vcf"
+        vcf = int_files + "{sample}_vs_" + ref_org + "_svim.vcf"
     conda:
         "workflow/envs/svim.yaml"
+    params:
+        outdir = "workflow/{sample}_svim"
     shell:
-        "svim alignment "
+        """
+        svim alignment {params.outdir} {input.bamfile} {input.ref}
+        mv {params.outdir}/variants.vcf {output.vcf}
+        """
 
 rule vcfMerge:
     input:
-        snif = "{sample}_vs_" + ref_org + "_sniffles.vcf"
-        cute = "{sample}_vs_" + ref_org + "_cutesv.vcf"
-        svim = "{sample}_vs_" + ref_org + "_svim.vcf"
+        snif = int_files + "{sample}_vs_" + ref_org + "_sniffles.vcf"
+        cute = int_files + "{sample}_vs_" + ref_org + "_cutesv.vcf"
+        svim = int_files + "{sample}_vs_" + ref_org + "_svim.vcf"
     output:
         "{sample}_merged.vcf"
     params:
@@ -78,7 +82,7 @@ rule vcfMerge:
     shell:
         """
         ls {input.snif} {input.cute} {input.svim} > {sample}_vcfs.txt
-        {params.surv_path}/SURVIVOR merge {sample}_vcfs.txt 1000 3 1 1 0 50 {output}
+        {params.surv_path} merge {sample}_vcfs.txt 1000 3 1 1 0 50 {output}
         """
 
 rule vcfFilter:
@@ -90,10 +94,12 @@ rule vcfFilter:
         gaps = config["gap_bed"]
     params:
         surv_path = config["survivor_path"]
+    conda:
+        "workflow/envs/bcftools.yaml"
     shell:
         """
-        grep -v '<TRA>' {input} | bcftools view -i 'SVLEN>49 && SVLEN<100000 && SUPPORT<60' - > {sample}_merged_filtered.vcf
-        {params.surv_path}/SURVIVOR filter {sample}_merged_filtered.vcf {params.gaps} 50 -1 0 -1 {output.filt}
+        grep -v '<TRA>' {input} | bcftools view -i 'QUAL >= 10 && SVLEN>=50 && SVLEN<100000 && SUPPORT<60' - > {sample}_merged_filtered.vcf
+        {params.surv_path} filter {sample}_merged_filtered.vcf {params.gaps} 50 -1 0 -1 {output.filt}
         """
 
 rule forceCall:
@@ -102,7 +108,7 @@ rule forceCall:
         bamfile = get_bam
         knownsv = "{sample}_merged_filtered_nogaps.vcf"
     output:
-        "{sample}_finalCall.vcf"
+        "results/{sample}_finalCall.vcf"
     conda:
         "workflow/envs/sniffles.yaml"
     shell:
