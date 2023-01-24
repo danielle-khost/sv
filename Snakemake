@@ -4,7 +4,7 @@ import glob, os, pathlib
 
 #Config file
 configfile: "config/config.yaml"
-res_config: "config/resources.yaml"
+res_config = yaml.load(open("config/resources.yaml"),Loader=yaml.FullLoader)
 samsheet="config/samples.tsv"
 
 samdict = {}
