@@ -1,0 +1,17 @@
+sniffles_call:
+    nodes: 1 
+    threads: 8
+    mem_mb: 36000
+    time: 4320
+
+cutesv_call:
+    nodes: 1 
+    threads: 8
+    mem_mb: 36000
+    time: 10080
+
+svim_call:
+    nodes: 1 
+    threads: 8
+    mem_mb: 36000
+    time: 10080

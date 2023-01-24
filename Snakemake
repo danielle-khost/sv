@@ -4,6 +4,7 @@ import glob, os, pathlib
 
 #Config file
 configfile: "config/config.yaml"
+res_config: "config/resources.yaml"
 samsheet="config/samples.tsv"
 
 samdict = {}
