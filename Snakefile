@@ -10,6 +10,7 @@ samsheet="config/samples.tsv"
 samdict = {}
 with open(samsheet) as fin:
     for line in fin:
+        line = line.rstrip()
         data = line.split("\t")
         samdict[data[0]] = {'bamfile' : data[1]}
 
@@ -95,37 +96,39 @@ rule vcfMerge:
         mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["vcf_merge"]["mem_mb"],
         time = res_config["vcf_merge"]["time"]
     params:
-        surv_path = config["survivor_path"]
+        surv_path = config["survivor_path"],
+        text = "{sample}_vcfs.txt"
     shell:
         """
-        ls {input.snif} {input.cute} {input.svim} > {sample}_vcfs.txt
-        {params.surv_path} merge {sample}_vcfs.txt 1000 3 1 1 0 50 {output}
+        ls {input.snif} {input.cute} {input.svim} > {params.text}
+        {params.surv_path} merge {params.text} 1000 3 1 1 0 50 {output}
         """
 
 rule vcfFilter:
     input:
         "{sample}_merged.vcf"
     output:
-        filt = "{sample}_merged_filtered_nogaps.vcf"
+        filt = int_files + "{sample}_merged_filtered_nogaps.vcf"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["vcf_filter"]["mem_mb"],
         time = res_config["vcf_filter"]["time"]
     params:
         gaps = config["gap_bed"],
         surv_path = config["survivor_path"]
+        inter = int_files + "{sample}_merged_filtered.vcf"
     conda:
         "workflow/envs/bcftools.yaml"
     shell:
         """
-        grep -v '<TRA>' {input} | bcftools view -i 'QUAL >= 10 && SVLEN>=50 && SVLEN<100000 && SUPPORT<60' - > {sample}_merged_filtered.vcf
-        {params.surv_path} filter {sample}_merged_filtered.vcf {params.gaps} 50 -1 0 -1 {output.filt}
+        grep -v '<TRA>' {input} | bcftools view -i 'QUAL >= 10 && SVLEN>=50 && SVLEN<100000 && SUPPORT<60' - > {params.inter}
+        {params.surv_path} filter {params.inter} {params.gaps} 50 -1 0 -1 {output.filt}
         """
 
 rule forceCall:
     input:
         ref = config["reference"],
         bamfile = get_bam,
-        knownsv = "{sample}_merged_filtered_nogaps.vcf"
+        knownsv = int_files + "{sample}_merged_filtered_nogaps.vcf"
     output:
         "results/{sample}_finalCall.vcf"
     resources:
