@@ -6,12 +6,30 @@ sniffles_call:
 
 cutesv_call:
     nodes: 1 
-    threads: 8
+    threads: 16
     mem_mb: 36000
     time: 10080
 
 svim_call:
     nodes: 1 
-    threads: 8
+    threads: 4
     mem_mb: 36000
     time: 10080
+
+vcf_merge:
+    nodes: 1 
+    threads: 1
+    mem_mb: 24000
+    time: 4320
+
+vcf_filter:
+    nodes: 1 
+    threads: 1
+    mem_mb: 24000
+    time: 4320
+
+force_call:
+    nodes: 1 
+    threads: 8
+    mem_mb: 36000
+    time: 4320

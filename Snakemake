@@ -34,35 +34,48 @@ rule all:
 #Rules
 rule snifflesCall:
     input:
-        ref = config["reference"]
+        ref = config["reference"],
         bamfile = get_bam
     output:
-        vcf = int_files + "{sample}_vs_" + ref_org + "_sniffles.vcf"
+        vcf = int_files + "{sample}_vs_" + ref_org + "_sniffles.vcf",
         snf = int_files +  "{sample}_vs_" + ref_org + "_sniffles.snf"
     conda:
         "workflow/envs/sniffles.yaml"
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["sniffles_call"]["mem_mb"],
+        time = res_config["sniffles_call"]["time"]
+    threads:
+        res_config['sniffles_call']['threads']
     shell:
-        "sniffles --threads 8 --reference {input.ref} --input {input.bamfile} --vcf {output.vcf} --snf {output.snf}"
+        "sniffles --threads {threads} --reference {input.ref} --input {input.bamfile} --vcf {output.vcf} --snf {output.snf}"
 
 rule cutesvCall:
     input:
-        ref = config["reference"]
+        ref = config["reference"],
         bamfile = get_bam
     output:
         vcf = int_files + "{sample}_vs_" + ref_org + "_cutesv.vcf"
     conda:
         "workflow/envs/cutesv.yaml"
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["cutesv_call"]["mem_mb"],
+        time = res_config["cutesv_call"]["time"]
+    threads:
+        res_config['cutesv_call']['threads']
     shell:
-        "cuteSV --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {output.vcf}"
+        "cuteSV -t {threads} --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {output.vcf}"
 
 rule svimCall:
     input:
-        ref = config["reference"]
+        ref = config["reference"],
         bamfile = get_bam
     output:
         vcf = int_files + "{sample}_vs_" + ref_org + "_svim.vcf"
     conda:
         "workflow/envs/svim.yaml"
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["svim_call"]["mem_mb"],
+        time = res_config["svim_call"]["time"]
     params:
         outdir = "workflow/{sample}_svim"
     shell:
@@ -73,11 +86,14 @@ rule svimCall:
 
 rule vcfMerge:
     input:
-        snif = int_files + "{sample}_vs_" + ref_org + "_sniffles.vcf"
-        cute = int_files + "{sample}_vs_" + ref_org + "_cutesv.vcf"
+        snif = int_files + "{sample}_vs_" + ref_org + "_sniffles.vcf",
+        cute = int_files + "{sample}_vs_" + ref_org + "_cutesv.vcf",
         svim = int_files + "{sample}_vs_" + ref_org + "_svim.vcf"
     output:
         "{sample}_merged.vcf"
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["vcf_merge"]["mem_mb"],
+        time = res_config["vcf_merge"]["time"]
     params:
         surv_path = config["survivor_path"]
     shell:
@@ -91,9 +107,11 @@ rule vcfFilter:
         "{sample}_merged.vcf"
     output:
         filt = "{sample}_merged_filtered_nogaps.vcf"
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["vcf_filter"]["mem_mb"],
+        time = res_config["vcf_filter"]["time"]
     params:
-        gaps = config["gap_bed"]
-    params:
+        gaps = config["gap_bed"],
         surv_path = config["survivor_path"]
     conda:
         "workflow/envs/bcftools.yaml"
@@ -105,12 +123,17 @@ rule vcfFilter:
 
 rule forceCall:
     input:
-        ref = config["reference"]
-        bamfile = get_bam
+        ref = config["reference"],
+        bamfile = get_bam,
         knownsv = "{sample}_merged_filtered_nogaps.vcf"
     output:
         "results/{sample}_finalCall.vcf"
+    resources:
+        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["force_call"]["mem_mb"],
+        time = res_config["force_call"]["time"]
+    threads:
+        res_config['force_call']['threads']
     conda:
         "workflow/envs/sniffles.yaml"
     shell:
-        "sniffles --input {input.bamfile} --reference {input.ref} {input.knownsv} --vcf {output}"
+        "sniffles --threads {threads} --input {input.bamfile} --reference {input.ref} {input.knownsv} --vcf {output}"

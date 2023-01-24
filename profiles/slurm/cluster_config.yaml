@@ -2,23 +2,41 @@ __default__:
     partition: "shared"
     time: 720
     nodes: 1
-    output: "logs/slurm-%j.out"
-    error: "logs/slurm-%j.err"
+    output: "workflow/logs/slurm-%j.out"
+    error: "workflow/logs/slurm-%j.err"
 
 snifflesCall:
-    partition: "serial_requeue,shared" 
-    output: "logs/sniffcall-%j.out"
-    error: "logs/sniffcall-%j.err"
+    partition: "holy-cow,shared" 
+    output: "workflow/logs/sniffcall-%j.out"
+    error: "workflow/logs/sniffcall-%j.err"
     job-name: "sniffcall"
 
 cutesvCall:
     partition: "holy-cow,shared" 
-    output: "logs/cutecall-%j.out"
-    error: "logs/cutecall-%j.err"
+    output: "workflow/logs/cutecall-%j.out"
+    error: "workflow/logs/cutecall-%j.err"
     job-name: "cutecall"
 
 svimCall:
     partition: "holy-cow,shared" 
-    output: "logs/svimcall-%j.out"
-    error: "logs/svimcall-%j.err"
+    output: "workflow/logs/svimcall-%j.out"
+    error: "workflow/logs/svimcall-%j.err"
     job-name: "svimcall"
+
+vcfMerge:
+    partition: "holy-cow,shared" 
+    output: "workflow/logs/merge-%j.out"
+    error: "workflow/logs/merge-%j.err"
+    job-name: "merge"
+
+vcfFilter:
+    partition: "holy-cow,shared" 
+    output: "workflow/logs/filter-%j.out"
+    error: "workflow/logs/filter-%j.err"
+    job-name: "filter"
+
+forceCall:
+    partition: "holy-cow,shared" 
+    output: "workflow/logs/forcecall-%j.out"
+    error: "workflow/logs/forceall-%j.err"
+    job-name: "forcecall"
