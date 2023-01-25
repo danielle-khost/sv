@@ -64,7 +64,7 @@ rule cutesvCall:
     threads:
         res_config['cutesv_call']['threads']
     shell:
-        "cuteSV -t {threads} --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {output.vcf}"
+        "cuteSV -t {threads} --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {input.ref} {output.vcf} ./"
 
 rule svimCall:
     input:
@@ -114,7 +114,7 @@ rule vcfFilter:
         time = res_config["vcf_filter"]["time"]
     params:
         gaps = config["gap_bed"],
-        surv_path = config["survivor_path"]
+        surv_path = config["survivor_path"],
         inter = int_files + "{sample}_merged_filtered.vcf"
     conda:
         "workflow/envs/bcftools.yaml"
