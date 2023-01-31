@@ -63,8 +63,13 @@ rule cutesvCall:
         time = res_config["cutesv_call"]["time"]
     threads:
         res_config['cutesv_call']['threads']
+    params:
+        tmpdir = int_files + "{sample}"
     shell:
-        "cuteSV -t {threads} --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {input.ref} {output.vcf} ./"
+        """
+        mkdir {params.tmpdir}
+        cuteSV -t {threads} --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {input.ref} {output.vcf} {params.tmpdir}
+        """
 
 rule svimCall:
     input:
