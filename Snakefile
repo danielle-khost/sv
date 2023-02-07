@@ -67,7 +67,7 @@ rule cutesvCall:
         tmpdir = int_files + "{sample}"
     shell:
         """
-        mkdir {params.tmpdir}
+        mkdir -p {params.tmpdir}
         cuteSV -t {threads} --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {input.ref} {output.vcf} {params.tmpdir}
         """
 
@@ -125,7 +125,7 @@ rule vcfFilter:
         "workflow/envs/bcftools.yaml"
     shell:
         """
-        grep -v '<TRA>' {input} | bcftools view -i 'QUAL >= 10 && SVLEN>=50 && SVLEN<100000 && SUPPORT<60' - > {params.inter}
+        grep -v '<TRA>' {input} | bcftools view -i 'SVLEN>=50 && SVLEN<100000 && RE<30' - > {params.inter}
         {params.surv_path} filter {params.inter} {params.gaps} 50 -1 0 -1 {output.filt}
         """
 
@@ -135,7 +135,8 @@ rule forceCall:
         bamfile = get_bam,
         knownsv = int_files + "{sample}_merged_filtered_nogaps.vcf"
     output:
-        "results/{sample}_finalCall.vcf"
+        vcf = "results/{sample}_finalCall.vcf"
+        snf ="results/{sample}_finalCall.vcf"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["force_call"]["mem_mb"],
         time = res_config["force_call"]["time"]
@@ -144,4 +145,4 @@ rule forceCall:
     conda:
         "workflow/envs/sniffles.yaml"
     shell:
-        "sniffles --threads {threads} --input {input.bamfile} --reference {input.ref} {input.knownsv} --vcf {output}"
+        "sniffles --threads {threads} --input {input.bamfile} --genotype-vcf {input.knownsv} --vcf {output.vcf} --snf {output.snf}"
