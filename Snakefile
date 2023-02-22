@@ -125,7 +125,7 @@ rule vcfFilter:
         "workflow/envs/bcftools.yaml"
     shell:
         """
-        grep -v '<TRA>' {input} | bcftools view -i 'SVLEN>=50 && SVLEN<100000 && RE<30' - > {params.inter}
+        grep -v '<TRA>' {input} | bcftools view -i 'SVLEN<100000 && RE<30' - > {params.inter}
         {params.surv_path} filter {params.inter} {params.gaps} 50 -1 0 -1 {output.filt}
         """
 
