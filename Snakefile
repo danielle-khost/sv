@@ -43,7 +43,7 @@ rule snifflesCall:
     conda:
         "workflow/envs/sniffles.yaml"
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["sniffles_call"]["mem_mb"],
+        mem_mb = res_config["sniffles_call"]["mem_mb"],
         time = res_config["sniffles_call"]["time"]
     threads:
         res_config['sniffles_call']['threads']
@@ -59,7 +59,7 @@ rule cutesvCall:
     conda:
         "workflow/envs/cutesv.yaml"
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["cutesv_call"]["mem_mb"],
+        mem_mb = res_config["cutesv_call"]["mem_mb"],
         time = res_config["cutesv_call"]["time"]
     threads:
         res_config['cutesv_call']['threads']
@@ -80,7 +80,7 @@ rule svimCall:
     conda:
         "workflow/envs/svim.yaml"
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["svim_call"]["mem_mb"],
+        mem_mb = res_config["svim_call"]["mem_mb"],
         time = res_config["svim_call"]["time"]
     params:
         outdir = "workflow/{sample}_svim"
@@ -96,7 +96,7 @@ rule vcfMerge:
         cute = int_files + "{sample}_vs_" + ref_org + "_cutesv.vcf",
         svim = int_files + "{sample}_vs_" + ref_org + "_svim.vcf"
     output:
-        "{sample}_merged.vcf"
+        int_files + "{sample}_merged.vcf"
     resources:
         mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["vcf_merge"]["mem_mb"],
         time = res_config["vcf_merge"]["time"]
@@ -111,11 +111,11 @@ rule vcfMerge:
 
 rule vcfFilter:
     input:
-        "{sample}_merged.vcf"
+        int_files + "{sample}_merged.vcf"
     output:
         filt = int_files + "{sample}_merged_filtered_nogaps.vcf"
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["vcf_filter"]["mem_mb"],
+        mem_mb = res_config["vcf_filter"]["mem_mb"],
         time = res_config["vcf_filter"]["time"]
     params:
         gaps = config["gap_bed"],
@@ -125,7 +125,7 @@ rule vcfFilter:
         "workflow/envs/bcftools.yaml"
     shell:
         """
-        grep -v '<TRA>' {input} | bcftools view -i 'SVLEN<100000 && RE<30' - > {params.inter}
+        grep -v '<TRA>' {input} | bcftools view -i 'SVLEN<100000' - > {params.inter}
         {params.surv_path} filter {params.inter} {params.gaps} 50 -1 0 -1 {output.filt}
         """
 
@@ -135,14 +135,13 @@ rule forceCall:
         bamfile = get_bam,
         knownsv = int_files + "{sample}_merged_filtered_nogaps.vcf"
     output:
-        vcf = "results/{sample}_finalCall.vcf"
-        snf ="results/{sample}_finalCall.vcf"
+        vcf = "results/{sample}_finalCall.vcf",
     resources:
-        mem_mb = lambda wildcards, attempt: attempt * 1.5 * res_config["force_call"]["mem_mb"],
+        mem_mb = res_config["force_call"]["mem_mb"],
         time = res_config["force_call"]["time"]
     threads:
         res_config['force_call']['threads']
     conda:
         "workflow/envs/sniffles.yaml"
     shell:
-        "sniffles --threads {threads} --input {input.bamfile} --genotype-vcf {input.knownsv} --vcf {output.vcf} --snf {output.snf}"
+        "sniffles --threads {threads} --input {input.bamfile} --genotype-vcf {input.knownsv} --vcf {output.vcf}"

@@ -6,7 +6,7 @@ sniffles_call:
 
 cutesv_call:
     nodes: 1 
-    threads: 16
+    threads: 8
     mem_mb: 36000
     time: 10080
 

@@ -6,7 +6,7 @@ __default__:
     error: "workflow/logs/slurm-%j.err"
 
 snifflesCall:
-    partition: "holy-cow,shared" 
+    partition: "holy-cow,shared,holy-smokes" 
     output: "workflow/logs/sniffcall-%j.out"
     error: "workflow/logs/sniffcall-%j.err"
     job-name: "sniffcall"
