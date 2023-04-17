@@ -135,7 +135,7 @@ rule forceCall:
         bamfile = get_bam,
         knownsv = int_files + "{sample}_merged_filtered_nogaps.vcf"
     output:
-        vcf = "results/{sample}_finalCall.vcf",
+        vcf = temp("results/{sample}_finalCall.vcf")
     resources:
         mem_mb = res_config["force_call"]["mem_mb"],
         time = res_config["force_call"]["time"]
@@ -145,3 +145,24 @@ rule forceCall:
         "workflow/envs/sniffles.yaml"
     shell:
         "sniffles --threads {threads} --input {input.bamfile} --genotype-vcf {input.knownsv} --vcf {output.vcf}"
+
+
+rule fixHeader:
+    input:
+        "results/{sample}_finalCall.vcf"
+    output:
+        vcf =  "results/{sample}_finalCall.sample.vcf"
+    resources:
+        mem_mb = res_config["vcf_filter"]["mem_mb"],
+        time = res_config["vcf_filter"]["time"]
+    conda:
+        "workflow/envs/bcftools.yaml"
+    params:
+        rename = temp("{sample}_rename.txt"),
+        trimvcf = temp("{sample}_trimmed.vcf")
+    shell:
+        """
+        echo "{sample}" > {params.rename}
+        cut -f1-10 {input} > {params.trimvcf}
+        bcftools reheader -s {params.rename} {params.trimvcf} -o {output.vcf}
+        """
