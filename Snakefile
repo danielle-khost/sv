@@ -29,7 +29,8 @@ def get_bam(wildcards):
 #Global rule
 rule all:
     input:
-        expand("results/{sample}_finalCall.vcf", sample=samples)
+        expand("results/{sample}_finalForceCall.vcf", sample=samples),
+        "results/FINAL_ALL_MERGED.vcf"
 
 
 #Rules
@@ -135,7 +136,7 @@ rule forceCall:
         bamfile = get_bam,
         knownsv = int_files + "{sample}_merged_filtered_nogaps.vcf"
     output:
-        vcf = temp("results/{sample}_finalCall.vcf")
+        vcf = "results/{sample}_finalCall.vcf"
     resources:
         mem_mb = res_config["force_call"]["mem_mb"],
         time = res_config["force_call"]["time"]
@@ -162,7 +163,58 @@ rule fixHeader:
         trimvcf = temp("{sample}_trimmed.vcf")
     shell:
         """
-        echo "{sample}" > {params.rename}
+        echo "{wildcards.sample}" > {params.rename}
         cut -f1-10 {input} > {params.trimvcf}
         bcftools reheader -s {params.rename} {params.trimvcf} -o {output.vcf}
+        """
+
+rule mergeAll:
+    input:
+        vcfs = expand("results/{sample}_finalCall.sample.vcf", sample=samples),
+    output:
+        mergevcf = "results/ALL_MERGED.vcf"
+    resources:
+        mem_mb = res_config["vcf_merge"]["mem_mb"],
+        time = res_config["vcf_merge"]["time"]
+    params:
+        surv_path = config["survivor_path"],
+        text = "all_vcfs.txt"
+    shell:
+        """
+        ls {input.vcfs} > {params.text}
+        {params.surv_path} merge {params.text} 1000 1 1 1 0 50 {output.mergevcf}
+        """
+
+rule finalForceCall:
+    input:
+        ref = config["reference"],
+        bamfile = get_bam,
+        knownsv = "results/ALL_MERGED.vcf"
+    output:
+        vcf = "results/{sample}_finalForceCall.vcf"
+    resources:
+        mem_mb = res_config["final_call"]["mem_mb"],
+        time = res_config["final_call"]["time"]
+    threads:
+        res_config['final_call']['threads']
+    conda:
+        "workflow/envs/sniffles.yaml"
+    shell:
+        "sniffles --threads {threads} --input {input.bamfile} --genotype-vcf {input.knownsv} --vcf {output.vcf}"
+
+rule finalMerge:
+    input:
+        vcfs = expand("results/{sample}_finalForceCall.vcf", sample=samples),
+    output:
+        mergevcf = "results/FINAL_ALL_MERGED.vcf"
+    resources:
+        mem_mb = res_config["vcf_merge"]["mem_mb"],
+        time = res_config["vcf_merge"]["time"]
+    params:
+        surv_path = config["survivor_path"],
+        text = "final_all_vcfs.txt"
+    shell:
+        """
+        ls {input.vcfs} > {params.text}
+        {params.surv_path} merge {params.text} 1000 1 1 1 0 50 {output.mergevcf}
         """
