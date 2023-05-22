@@ -29,8 +29,8 @@ def get_bam(wildcards):
 #Global rule
 rule all:
     input:
-        expand("results/{sample}_finalForceCall.vcf", sample=samples),
-        "results/FINAL_ALL_MERGED.vcf"
+        expand("results/{sample}_finalCall.sample.vcf", sample=samples),
+        "results/JAS_MERGED_ALLSAMPLES.vcf"
 
 
 #Rules
@@ -69,7 +69,7 @@ rule cutesvCall:
     shell:
         """
         mkdir -p {params.tmpdir}
-        cuteSV -t {threads} --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {input.ref} {output.vcf} {params.tmpdir}
+        cuteSV -t {threads} --genotype --max_cluster_bias_INS 100 --diff_ratio_merging_INS 0.3 --max_cluster_bias_DEL 100 --diff_ratio_merging_DE 0.3 {input.bamfile} {input.ref} {output.vcf} {params.tmpdir}
         """
 
 rule svimCall:
@@ -88,10 +88,10 @@ rule svimCall:
     shell:
         """
         svim alignment {params.outdir} {input.bamfile} {input.ref}
-        mv {params.outdir}/variants.vcf {output.vcf}
+        bcftools view -i 'QUAL >= 10' {params.outdir}/variants.vcf > {output.vcf}
         """
 
-rule vcfMerge:
+rule survMergeCallers:
     input:
         snif = int_files + "{sample}_vs_" + ref_org + "_sniffles.vcf",
         cute = int_files + "{sample}_vs_" + ref_org + "_cutesv.vcf",
@@ -110,31 +110,96 @@ rule vcfMerge:
         {params.surv_path} merge {params.text} 1000 3 1 1 0 50 {output}
         """
 
+rule jasMergeCallers:
+    input:
+        snif = int_files + "{sample}_vs_" + ref_org + "_sniffles.vcf",
+        cute = int_files + "{sample}_vs_" + ref_org + "_cutesv.vcf",
+        svim = int_files + "{sample}_vs_" + ref_org + "_svim.vcf"
+    output:
+        int_files + "{sample}_jas_merge_callers.vcf"
+    conda:
+        "workflow/envs/jasmine.yaml"
+    resources:
+        mem_mb = res_config["jas_merge"]["mem_mb"],
+        time = res_config["jas_merge"]["time"]
+    params:
+        text = "{sample}_vcfs2.txt"
+    threads:
+        res_config['jas_merge']['threads']
+    shell:
+        """
+        ls {input.snif} {input.cute} {input.svim} > {params.text}
+        jasmine file_list={params.text} out_file={output} --allow_intrasample threads={threads}
+        """
+
 rule vcfFilter:
     input:
-        int_files + "{sample}_merged.vcf"
+        surv = int_files + "{sample}_merged.vcf",
+        jas = int_files + "{sample}_jas_merge_callers.vcf"
     output:
-        filt = int_files + "{sample}_merged_filtered_nogaps.vcf"
+        survfilt = int_files + "{sample}_merged_filtered.vcf",
+        jasfilt = int_files + "{sample}_jas_merge_filtered.vcf"
     resources:
         mem_mb = res_config["vcf_filter"]["mem_mb"],
         time = res_config["vcf_filter"]["time"]
     params:
         gaps = config["gap_bed"],
         surv_path = config["survivor_path"],
-        inter = int_files + "{sample}_merged_filtered.vcf"
+ #       survinter = int_files + "{sample}_merged_filtered.vcf",
+ #       jasinter = int_files + "{sample}_jas_merge_filtered.vcf"
     conda:
         "workflow/envs/bcftools.yaml"
     shell:
         """
-        grep -v '<TRA>' {input} | bcftools view -i 'SVLEN<100000' - > {params.inter}
-        {params.surv_path} filter {params.inter} {params.gaps} 50 -1 0 -1 {output.filt}
+        grep -v '<TRA>' {input.surv} | grep -v 'BND' | bcftools view -i 'SVLEN<100000' - > {output.survfilt}
+        grep -v '<TRA>' {input.jas} | grep -v 'BND' | bcftools view -i 'SVLEN<100000' - > {output.jasfilt}
+        """
+
+ #       {params.surv_path} filter {params.survinter} {params.gaps} 50 -1 0 -1 {output.survfilt}
+ #       {params.surv_path} filter {params.jasinter} {params.gaps} 50 -1 0 -1 {output.jasfilt}
+
+rule survMergeSamples:
+    input:
+        vcfs = expand(int_files + "{sample}_merged_filtered.vcf", sample=samples),
+    output:
+        mergevcf = "results/ALL_MERGED.vcf"
+    resources:
+        mem_mb = res_config["vcf_merge"]["mem_mb"],
+        time = res_config["vcf_merge"]["time"]
+    params:
+        surv_path = config["survivor_path"],
+        text = "all_vcfs.txt"
+    shell:
+        """
+        ls {input.vcfs} > {params.text}
+        {params.surv_path} merge {params.text} 1000 1 1 1 0 50 {output.mergevcf}
+        """
+
+rule jasMergeSamples:
+    input:
+        vcfs = expand(int_files + "{sample}_jas_merge_filtered.vcf", sample=samples),
+    output:
+        "results/JAS_MERGED_ALLSAMPLES.vcf"
+    conda:
+        "workflow/envs/jasmine.yaml"
+    resources:
+        mem_mb = res_config["jas_merge"]["mem_mb"],
+        time = res_config["jas_merge"]["time"]
+    params:
+        text = "all_vcfs2.txt"
+    threads:
+        res_config['jas_merge']['threads']
+    shell:
+        """
+        ls {input.vcfs} > {params.text}
+        jasmine file_list={params.text} out_file={output} --allow_intrasample --output_genotypes threads={threads}
         """
 
 rule forceCall:
     input:
         ref = config["reference"],
         bamfile = get_bam,
-        knownsv = int_files + "{sample}_merged_filtered_nogaps.vcf"
+        knownsv = "results/ALL_MERGED.vcf"
     output:
         vcf = "results/{sample}_finalCall.vcf"
     resources:
@@ -168,53 +233,3 @@ rule fixHeader:
         bcftools reheader -s {params.rename} {params.trimvcf} -o {output.vcf}
         """
 
-rule mergeAll:
-    input:
-        vcfs = expand("results/{sample}_finalCall.sample.vcf", sample=samples),
-    output:
-        mergevcf = "results/ALL_MERGED.vcf"
-    resources:
-        mem_mb = res_config["vcf_merge"]["mem_mb"],
-        time = res_config["vcf_merge"]["time"]
-    params:
-        surv_path = config["survivor_path"],
-        text = "all_vcfs.txt"
-    shell:
-        """
-        ls {input.vcfs} > {params.text}
-        {params.surv_path} merge {params.text} 1000 1 1 1 0 50 {output.mergevcf}
-        """
-
-rule finalForceCall:
-    input:
-        ref = config["reference"],
-        bamfile = get_bam,
-        knownsv = "results/ALL_MERGED.vcf"
-    output:
-        vcf = "results/{sample}_finalForceCall.vcf"
-    resources:
-        mem_mb = res_config["final_call"]["mem_mb"],
-        time = res_config["final_call"]["time"]
-    threads:
-        res_config['final_call']['threads']
-    conda:
-        "workflow/envs/sniffles.yaml"
-    shell:
-        "sniffles --threads {threads} --input {input.bamfile} --genotype-vcf {input.knownsv} --vcf {output.vcf}"
-
-rule finalMerge:
-    input:
-        vcfs = expand("results/{sample}_finalForceCall.vcf", sample=samples),
-    output:
-        mergevcf = "results/FINAL_ALL_MERGED.vcf"
-    resources:
-        mem_mb = res_config["vcf_merge"]["mem_mb"],
-        time = res_config["vcf_merge"]["time"]
-    params:
-        surv_path = config["survivor_path"],
-        text = "final_all_vcfs.txt"
-    shell:
-        """
-        ls {input.vcfs} > {params.text}
-        {params.surv_path} merge {params.text} 1000 1 1 1 0 50 {output.mergevcf}
-        """
