@@ -1,0 +1,7 @@
+reference: "/n/holylfs05/LABS/hopkins_lab/Lab/Phlox_resources/WG_assemblies/assemblies/drummondii/phlox_flye.v1.0.FINAL.fasta"
+ref_org: "pdrum"
+gap_bed: "/n/holylfs05/LABS/hopkins_lab/Everyone/felix_danielle_share/phlox_flye.v1.0.gaps.bed"
+survivor_path: "/n/holylfs05/LABS/informatics/Users/dkhost/SURVIVOR-master/Debug/SURVIVOR"
+
+#Don't change
+intermediate_files: "results/intermediate_vcfs/"
